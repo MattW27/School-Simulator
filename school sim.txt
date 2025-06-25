@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>School Simulator – Part 1: Setup Phase</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f9fafb;
+      padding: 2rem;
+      max-width: 900px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #1f2937;
+    }
+    .status {
+      background: #e0f2fe;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .scenario {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    button {
+      display: block;
+      width: 100%;
+      margin: 0.5rem 0;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 0.5rem;
+      background: #f3f4f6;
+      cursor: pointer;
+      text-align: left;
+      font-size: 1rem;
+    }
+    button:hover {
+      background: #e5e7eb;
+    }
+    button.selected {
+      background: #d1fae5 !important;
+      font-weight: bold;
+    }
+    #nextBtn {
+      background: #3b82f6;
+      color: white;
+      margin-top: 1rem;
+    }
+    #backBtn {
+      background: #ef4444;
+      color: white;
+      margin-top: 1rem;
+    }
+    .rationale {
+      font-size: 0.9rem;
+      color: #4b5563;
+    }
+    #endMessage {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏫 School Leadership Setup (Part 1)</h1>
+
+  <div style="margin-bottom: 1rem;">
+    <label for="schoolType"><strong>🏷️ Select School Type:</strong></label><br/>
+    <select id="schoolType" style="padding: 0.5rem; font-size: 1rem; margin-top: 0.5rem;">
+      <option value="">-- Select School Type --</option>
+      <option value="K-8">K-8</option>
+      <option value="Middle School">Middle School</option>
+      <option value="High School">High School</option>
+      <option value="Alternative">Alternative / Nontraditional</option>
+    </select>
+  </div>
+
+  <div class="status">
+    💰 Budget Remaining: <strong id="budgetDisplay">$200,000</strong><br/>
+    📘 Scenario <span id="scenarioNumber">1</span> of <span id="totalScenarios">22</span>
+  </div>
+
+  <div class="scenario">
+    <div id="scenarioText">Loading...</div>
+    <div id="options"></div>
+    <button id="nextBtn" style="display:none;">Next ➡</button>
+    <button id="backBtn" style="display:none;">⬅ Back</button>
+    <div id="endMessage"></div>
+  </div>
+
+  <script>
+    let budget = 200000;
+    let current = 0;
+    let history = [];
+    const tags = new Set();
+    const display = document.getElementById("budgetDisplay");
+    const scenarioText = document.getElementById("scenarioText");
+    const optionsDiv = document.getElementById("options");
+    const scenarioNum = document.getElementById("scenarioNumber");
+    const totalScenarios = document.getElementById("totalScenarios");
+    const endMessage = document.getElementById("endMessage");
+    const nextBtn = document.getElementById("nextBtn");
+    const backBtn = document.getElementById("backBtn");
+
+   const scenarios = [
+  {
+    text: "📌 Leadership Team Design (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Add Operations Manager ($35,000)", cost: 35000, tag: "addOpsLeader", rationale: "Frees principal from operations work." },
+      { text: "Add Dean of Culture ($30,000)", cost: 30000, tag: "addDeanCulture", rationale: "Focuses on student behavior and norms." },
+      { text: "Use teacher leadership teams ($10,000)", cost: 10000, tag: "teacherLeads", rationale: "Empowers staff leadership." },
+      { text: "Stick with Principal + 1 AP ($0)", cost: 0, tag: "basicLeadership", rationale: "Conserves budget but limits capacity." }
+    ]
+  },
+  {
+    text: "📌 Facilities Oversight (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "Checklist system + custodial logs ($2,000)", cost: 2000, tag: "checklistSystem", rationale: "Improves maintenance tracking." },
+      { text: "Rent gym on weekends (future revenue)", cost: 0, tag: "facilityRental", rationale: "Can generate income in Part 2." },
+      { text: "Hire part-time facilities coordinator ($20,000)", cost: 20000, tag: "facilitiesStaff", rationale: "Adds capacity for vendors and upkeep." }
+    ]
+  },
+  {
+    text: "📌 Academic Systems Design (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Tutoring block during advisory ($4,000)", cost: 4000, tag: "tutoringBlock", rationale: "Built-in Tier 2 support." },
+      { text: "Apply for Saturday School grant ($10,000)", cost: 10000, tag: "saturdaySchool", rationale: "Unlocks grant opportunities." },
+      { text: "Let teachers manage intervention ($0)", cost: 0, tag: "noEnrichment", rationale: "Risky for struggling students." }
+    ]
+  },
+  {
+    text: "📌 Master Schedule Planning (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "Shared schedule design process ($0)", cost: 0, tag: "sharedSchedule", rationale: "Builds buy-in and alignment." },
+      { text: "Hire external schedule consultant ($10,000)", cost: 10000, tag: "scheduleConsult", rationale: "Ensures compliance and streamlines work." }
+    ]
+  },
+  {
+    text: "📌 Special Education & Compliance (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "SPED compliance lead ($15,000)", cost: 15000, tag: "spedComplianceLead", rationale: "Ensures IEP and legal timelines." },
+      { text: "Train teachers for folder audits ($3,000)", cost: 3000, tag: "spedTraining", rationale: "Builds internal compliance capacity." },
+      { text: "No formal system ($0)", cost: 0, tag: "noSpedPlan", rationale: "Risk of audit failure." }
+    ]
+  },
+  {
+    text: "📌 Technology & Data (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Standard LMS + grading policies ($7,000)", cost: 7000, tag: "standardLMS", rationale: "Improves consistency." },
+      { text: "Student tech support team ($3,000)", cost: 3000, tag: "studentTechSupport", rationale: "Reduces tech burden." },
+      { text: "Hire data consultant ($12,000)", cost: 12000, tag: "dataConsultant", rationale: "Supports dashboards and analytics." },
+      { text: "Let teachers choose tools ($0)", cost: 0, tag: "freeTech", rationale: "Saves money, but inconsistent." }
+    ]
+  },
+  {
+    text: "📌 Safety & Supervision (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Duty roster with coverage plan ($2,000)", cost: 2000, tag: "dutySystem", rationale: "Ensures adult presence and safety." },
+      { text: "Stipend staff for dismissal ($6,000)", cost: 6000, tag: "stipendPatrol", rationale: "Incentivizes critical supervision roles." },
+      { text: "Contract security firm ($30,000)", cost: 30000, tag: "contractSecurity", rationale: "Provides professional presence." },
+      { text: "Use APs and teachers ($0)", cost: 0, tag: "manualCoverage", rationale: "Stretches capacity, but saves budget." }
+    ]
+  },
+  {
+    text: "📌 Student Culture & Behavior (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "Behavior matrix + norm training ($3,000)", cost: 3000, tag: "behaviorMatrix", rationale: "Aligns staff on expectations." },
+      { text: "Behavior tracking system ($5,000)", cost: 5000, tag: "behaviorTracker", rationale: "Provides data for coaching and response." },
+      { text: "No formal system ($0)", cost: 0, tag: "noBehaviorSystem", rationale: "Inconsistency and inequity likely." }
+    ]
+  },
+  {
+    text: "📌 Family Engagement (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Weekly family newsletter ($1,000)", cost: 1000, tag: "weeklyComms", rationale: "Builds transparency and trust." },
+      { text: "PTA fundraising platform ($5,000)", cost: 5000, tag: "ptaFundraising", rationale: "May generate future revenue." },
+      { text: "Hire family liaison ($20,000)", cost: 20000, tag: "familyLiaison", rationale: "Supports high-need families." },
+      { text: "No formal structure ($0)", cost: 0, tag: "noFamilyPlan", rationale: "Inconsistency in communication." }
+    ]
+  },
+  {
+    text: "📌 Afterschool & Athletics (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Partner w/ grant vendor ($0)", cost: 0, tag: "grantVendor", rationale: "Free programming, needs coordination." },
+      { text: "Stipend staff to run clubs ($10,000)", cost: 10000, tag: "runClubs", rationale: "Increases student engagement." },
+      { text: "Athletic Director stipend ($5,000)", cost: 5000, tag: "stipendAD", rationale: "Oversees sports and logistics." },
+      { text: "Event manager for ticketed events ($8,000)", cost: 8000, tag: "eventRevenue", rationale: "Can generate future income." }
+    ]
+  },
+  {
+    text: "📌 Bell Schedule Design (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "7-period rotating schedule ($0)", cost: 0, tag: "sevenPeriod", rationale: "Standard model, easy to implement." },
+      { text: "Block schedule (90-min periods) ($5,000)", cost: 5000, tag: "blockSchedule", rationale: "Fewer transitions, deeper learning." },
+      { text: "Flex mod personalized schedule ($10,000)", cost: 10000, tag: "flexSchedule", rationale: "Highly customizable, complex to run." }
+    ]
+  },
+  {
+    text: "📌 Instructional Leadership (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Weekly instructional coaching ($10,000)", cost: 10000, tag: "weeklyCoaching", rationale: "Builds teacher capacity consistently." },
+      { text: "Monthly learning walks ($2,000)", cost: 2000, tag: "learningWalks", rationale: "Builds shared language of quality." },
+      { text: "Model classroom lab ($5,000)", cost: 5000, tag: "modelClassroom", rationale: "Supports peer PD and observation." },
+      { text: "No formal instructional system ($0)", cost: 0, tag: "noInstrSupport", rationale: "Leaves improvement to chance." }
+    ]
+  },
+  {
+    text: "📌 Student Support Team (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "Dean-led support team ($5,000)", cost: 5000, tag: "deanSST", rationale: "Centralized oversight of behavior, SEL, and attendance." },
+      { text: "Shared AP + counselor team ($2,000)", cost: 2000, tag: "sharedSST", rationale: "Collaborative model, may lack clarity." },
+      { text: "No formal team ($0)", cost: 0, tag: "noSST", rationale: "Support is fragmented and reactive." }
+    ]
+  },
+  {
+    text: "📌 Emergency Preparedness (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "Monthly drills + training ($3,000)", cost: 3000, tag: "monthlyDrills", rationale: "Prepares for real events." },
+      { text: "Hire safety consultant ($8,000)", cost: 8000, tag: "consultantSafety", rationale: "Quickly builds a strong system." },
+      { text: "Use district template ($0)", cost: 0, tag: "defaultSafety", rationale: "Meets minimum requirements." }
+    ]
+  },
+  {
+    text: "📌 Data & Assessment (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Custom teacher dashboard ($7,000)", cost: 7000, tag: "teacherDashboard", rationale: "Access to real-time data." },
+      { text: "Weekly data meetings ($5,000)", cost: 5000, tag: "dataMeetings", rationale: "Supports responsive instruction." },
+      { text: "Use district platform ($0)", cost: 0, tag: "districtData", rationale: "Meets baseline, limits flexibility." }
+    ]
+  },
+  {
+    text: "📌 Family-Facing Structures (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Family help desk ($6,000)", cost: 6000, tag: "familyHelpDesk", rationale: "One-stop support center for families." },
+      { text: "Family advisory council ($2,000)", cost: 2000, tag: "familyCouncil", rationale: "Shared decision-making and feedback." },
+      { text: "Principal coffee chats ($1,000)", cost: 1000, tag: "coffeeChats", rationale: "Relational and informal engagement." },
+      { text: "No formal structure ($0)", cost: 0, tag: "noFamStructure", rationale: "Relies on teacher initiative or crisis response." }
+    ]
+  },
+  {
+    text: "📌 High School Readiness (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "Transcript tracking system ($4,000)", cost: 4000, tag: "promotionTracking", rationale: "Ensures students meet graduation requirements." },
+      { text: "HS navigator staff member ($12,000)", cost: 12000, tag: "hsNavigator", rationale: "Guides students and families through transition." },
+      { text: "Let counselors manage as needed ($0)", cost: 0, tag: "noHSPlan", rationale: "Risk of missed deadlines and inequity." }
+    ]
+  },
+  {
+    text: "📌 Arrival, Dismissal & Busing (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "Supervision + traffic plan ($3,000)", cost: 3000, tag: "arrivalPlan", rationale: "Improves safety and flow." },
+      { text: "Hire traffic manager ($10,000)", cost: 10000, tag: "trafficManager", rationale: "Professional oversight of entry/exit." },
+      { text: "Use admin + teachers ($0)", cost: 0, tag: "manualArrival", rationale: "Stretches team thin but saves budget." }
+    ]
+  },
+  {
+    text: "📌 Innovation & Risk Management (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "Pilot proposal system ($2,000)", cost: 2000, tag: "pilotSystem", rationale: "Encourages innovation with guardrails." },
+      { text: "Allow innovation by department ($0)", cost: 0, tag: "freeInnovation", rationale: "Empowers teams, risks inconsistency." },
+      { text: "No innovation allowed ($0)", cost: 0, tag: "noInnovation", rationale: "Keeps systems tight, may lower morale." }
+    ]
+  },
+  {
+    text: "📌 Internal Staff Communication (Pick up to 2)",
+    maxSelections: 2,
+    options: [
+      { text: "Weekly staff bulletin ($1,000)", cost: 1000, tag: "staffBulletin", rationale: "Keeps all staff aligned." },
+      { text: "Slack or Teams for staff ($3,000)", cost: 3000, tag: "staffMessaging", rationale: "Speeds up async communication." },
+      { text: "Monthly town halls ($2,000)", cost: 2000, tag: "staffMeetings", rationale: "Builds transparency and trust." },
+      { text: "No formal system ($0)", cost: 0, tag: "noStaffComms", rationale: "Leads to confusion and silos." }
+    ]
+  },{
+  text: "📌 Family-Facing Structures (Pick up to 2)",
+  maxSelections: 2,
+  options: [
+    { text: "Family help desk ($6,000)", cost: 6000, tag: "familyHelpDesk", rationale: "One-stop support center for families." },
+    { text: "Family advisory council ($2,000)", cost: 2000, tag: "familyCouncil", rationale: "Shared decision-making and feedback." },
+    { text: "Principal coffee chats ($1,000)", cost: 1000, tag: "coffeeChats", rationale: "Relational and informal engagement." },
+    { text: "No formal structure ($0)", cost: 0, tag: "noFamStructure", rationale: "Relies on teacher initiative or crisis response." }
+  ]
+},
+  {
+    text: "📌 Staff Retention & Morale (Pick 1)",
+    maxSelections: 1,
+    options: [
+      { text: "Launch wellness committee + monthly check-ins ($5,000)", cost: 5000, tag: "staffWellness", rationale: "Supports proactive burnout prevention and team culture." },
+      { text: "Offer retention bonuses to veteran staff ($10,000)", cost: 10000, tag: "retentionBonuses", rationale: "Incentivizes key staff to stay through year-end." },
+      { text: "Rely on end-of-year exit interviews ($0)", cost: 0, tag: "noMoralePlan", rationale: "No active strategy, risks mid-year departures." }
+    ]
+  }
+];
+
+    totalScenarios.textContent = scenarios.length;
+
+    function updateBudget() {
+      display.textContent = `$${budget.toLocaleString()}`;
+    }
+
+    function render(index) {
+      if (index >= scenarios.length) {
+  const selectedType = document.getElementById("schoolType").value || "Unspecified";
+  scenarioText.innerText = "✅ Setup Complete!";
+  optionsDiv.innerHTML = "";
+  nextBtn.style.display = "none";
+  backBtn.style.display = "none";
+  localStorage.setItem("schoolSimTags", JSON.stringify(Array.from(tags)));
+  localStorage.setItem("schoolSimType", selectedType);
+  localStorage.setItem("budgetRemaining", budget); // ✅ ADD THIS LINE
+  endMessage.innerHTML = `
+    Final Budget: <strong>$${budget.toLocaleString()}</strong><br/>
+    School Type: <strong>${selectedType}</strong><br/><br/>
+    Tags Saved:<br/><code>${Array.from(tags).join(", ")}</code><br/><br/>
+    ✅ Open <strong>Part 2</strong> to continue the simulation.
+  `;
+  return;
+}
+      const s = scenarios[index];
+      current = index;
+      scenarioNum.textContent = index + 1;
+      scenarioText.innerText = s.text;
+      optionsDiv.innerHTML = "";
+      nextBtn.style.display = "none";
+      backBtn.style.display = history.length > 0 ? "inline-block" : "none";
+
+      const localSelections = new Set();
+      s.options.forEach((opt, i) => {
+        const btn = document.createElement("button");
+        btn.innerHTML = `💵 -$${opt.cost.toLocaleString()} — ${opt.text}<br><span class="rationale">${opt.rationale}</span>`;
+        btn.onclick = () => {
+          if (btn.classList.contains("selected")) {
+            btn.classList.remove("selected");
+            localSelections.delete(i);
+            budget += opt.cost;
+            tags.delete(opt.tag);
+          } else {
+            if (localSelections.size >= s.maxSelections) return;
+            btn.classList.add("selected");
+            localSelections.add(i);
+            budget -= opt.cost;
+            tags.add(opt.tag);
+          }
+          updateBudget();
+          nextBtn.style.display = localSelections.size > 0 ? "inline-block" : "none";
+        };
+        optionsDiv.appendChild(btn);
+      });
+
+      nextBtn.onclick = () => {
+        history.push({ id: current, tags: Array.from(tags), budget });
+        render(index + 1);
+      };
+    }
+
+    backBtn.onclick = () => {
+      if (!history.length) return;
+      const last = history.pop();
+      budget = last.budget;
+      tags.clear();
+      last.tags.forEach(t => tags.add(t));
+      updateBudget();
+      render(last.id);
+    };
+
+    updateBudget();
+    render(0);
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>School Simulator – Part 2: Decision Day</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f9fafb;
+      padding: 2rem;
+      max-width: 900px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #1f2937;
+    }
+    .summary, .outcome {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    code {
+      background: #f1f5f9;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      font-family: monospace;
+    }
+    .tag {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1e40af;
+      padding: 0.3rem 0.6rem;
+      margin: 0.2rem;
+      border-radius: 0.375rem;
+      font-size: 0.9rem;
+    }
+    .outcome h2 {
+      color: #047857;
+    }
+  </style>
+</head>
+<body>
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>School Simulator – Part 2: Decision Day</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f3f4f6;
+      padding: 2rem;
+      max-width: 900px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #1f2937;
+    }
+    .status {
+      background: #e0f2fe;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .scenario {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    button {
+      display: block;
+      width: 100%;
+      margin: 0.5rem 0;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 0.5rem;
+      background: #f3f4f6;
+      cursor: pointer;
+      text-align: left;
+      font-size: 1rem;
+    }
+    button:hover {
+      background: #e5e7eb;
+    }
+    button.selected {
+      background: #d1fae5 !important;
+      font-weight: bold;
+    }
+    #nextBtn {
+      background: #3b82f6;
+      color: white;
+      margin-top: 1rem;
+    }
+    .rationale {
+      font-size: 0.9rem;
+      color: #4b5563;
+    }
+    #summary {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-top: 1.5rem;
+      background: #ecfccb;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>📘 School Simulator – Part 2: Decision Day</h1>
+
+  <div class="status">
+    🏷️ School Type: <strong id="schoolTypeLabel">Loading...</strong><br/>
+    💰 Budget Remaining: <strong id="budgetDisplay">$0</strong><br/>
+    🗂️ Scenario <span id="eventNumber">1</span> of <span id="totalEvents">0</span>
+  </div>
+
+  <div class="scenario">
+    <div id="eventText">Loading...</div>
+    <div id="eventOptions"></div>
+    <button id="nextBtn" style="display:none;">Next ➡</button>
+  </div>
+
+  <div id="summary" style="display:none;"></div>
+
+  <script>
+    const savedTags = new Set(JSON.parse(localStorage.getItem("schoolSimTags") || "[]"));
+    const schoolType = localStorage.getItem("schoolSimType") || "Unspecified";
+    let budget = parseInt(localStorage.getItem("budgetRemaining") || "200000");
+    let current = 0;
+    const history = [];
+
+    const allScenarios = [];
+
+    const reflectionScenarios = [
+      { tag: "noSpedPlan", text: "❗ SPED audit failure due to missing compliance systems.", options: [
+        { text: "Hire SPED compliance lead now ($15,000)", cost: 15000, tag: "fixedSped" },
+        { text: "Accept loss and fix later (-$10,000)", cost: 10000, tag: "spedFine" }
+      ]},
+      { tag: "grantVendor", text: "🚧 Grant vendor delayed program start. Students are idle.", options: [
+        { text: "Add staff-run clubs now ($10,000)", cost: 10000, tag: "fixEnrichment" },
+        { text: "Accept lower engagement (-$5,000)", cost: 5000, tag: "lowEngagement" }
+      ]},
+      { tag: "flexSchedule", text: "🕒 Flex schedule confusion led to missed classes.", options: [
+        { text: "Hire schedule consultant ($8,000)", cost: 8000, tag: "scheduleFix" },
+        { text: "Leave as-is (-$4,000)", cost: 4000, tag: "scheduleChaos" }
+      ]},
+      { tag: "noHSPlan", text: "🎓 Several seniors missed graduation requirements.", options: [
+        { text: "Hire HS navigator now ($12,000)", cost: 12000, tag: "hsFix" },
+        { text: "Hold emergency boot camp (-$6,000)", cost: 6000, tag: "hsCrisis" }
+      ]},
+      { tag: "freeTech", text: "💻 Teachers using incompatible tools.", options: [
+        { text: "Standardize LMS now ($7,000)", cost: 7000, tag: "lmsFix" },
+        { text: "Deal with confusion (-$4,000)", cost: 4000, tag: "techLoss" }
+      ]},
+      { tag: "manualCoverage", text: "👩‍🏫 Teachers burned out covering supervision.", options: [
+        { text: "Add stipends ($6,000)", cost: 6000, tag: "stipendFix" },
+        { text: "Lose morale (-$3,000)", cost: 3000, tag: "burnout" }
+      ]},
+      { tag: "noInnovation", text: "📉 Staff morale dropped with no innovation allowed.", options: [
+        { text: "Add pilot proposal system ($2,000)", cost: 2000, tag: "innovationFix" },
+        { text: "Lose goodwill (-$2,000)", cost: 2000, tag: "staffDisengaged" }
+      ]},
+      { tag: "contractSecurity", text: "🚨 Parents upset about over-policing.", options: [
+        { text: "Host community forum ($1,000)", cost: 1000, tag: "communityForum" },
+        { text: "Ignore (-$1,000)", cost: 1000, tag: "parentPushback" }
+      ]},
+      { tag: "noFamilyPlan", text: "📭 Missed a PTA fundraising opportunity.", options: [
+        { text: "Launch fundraising platform ($5,000)", cost: 5000, tag: "ptaFix" },
+        { text: "Lose funds (-$3,000)", cost: 3000, tag: "lostFundraiser" }
+      ]},
+      { tag: "noStaffComms", text: "📢 Staff miscommunication caused a crisis.", options: [
+        { text: "Add weekly bulletin ($1,000)", cost: 1000, tag: "addComms" },
+        { text: "Ignore (-$2,000)", cost: 2000, tag: "confusionLoss" }
+      ]},
+      { tag: "teacherLeads", text: "📋 Teacher leaders overwhelmed.", options: [
+        { text: "Add Ops Manager now ($35,000)", cost: 35000, tag: "addOpsNow" },
+        { text: "Keep as-is (-$5,000)", cost: 5000, tag: "leaderStrain" }
+      ]},
+      { tag: "noInstrSupport", text: "📚 Instruction quality varied widely.", options: [
+        { text: "Add coaching + labs ($15,000)", cost: 15000, tag: "addCoaching" },
+        { text: "Accept inconsistency (-$4,000)", cost: 4000, tag: "lowInstruction" }
+      ]},
+      { tag: "noBehaviorSystem", text: "😠 Student behaviors inconsistent.", options: [
+        { text: "Add norm training ($3,000)", cost: 3000, tag: "addBehaviorMatrix" },
+        { text: "Leave unstructured (-$2,000)", cost: 2000, tag: "disciplineIssues" }
+      ]},
+      { tag: "noMoralePlan", text: "💔 Mid-year staff survey shows morale issues.", options: [
+        { text: "Launch wellness committee ($5,000)", cost: 5000, tag: "fixMorale" },
+        { text: "Ignore (-$3,000)", cost: 3000, tag: "lowMoraleContinues" }
+      ]}
+    ];
+
+    reflectionScenarios.forEach(s => {
+      if (savedTags.has(s.tag)) {
+        allScenarios.push({
+          text: s.text,
+          options: s.options.map(o => ({
+            text: o.text,
+            cost: o.cost,
+            tag: o.tag,
+            rationale: ""
+          }))
+        });
+      }
+    });// New dynamic school-year event scenarios
+    const eventScenarios = [
+      {
+        text: "🌀 Major snowstorm closed school for 3 days.",
+        options: [
+          { text: "Use remote learning ($0)", cost: 0, tag: "remoteUsed" },
+          { text: "Add makeup days (-$2,000)", cost: 2000, tag: "makeupDays" }
+        ]
+      },
+      {
+        text: "📦 Supply budget is short. Teachers are buying their own materials.",
+        options: [
+          { text: "Add emergency fund ($3,000)", cost: 3000, tag: "supplyHelp" },
+          { text: "Do nothing (-$2,000 morale hit)", cost: 2000, tag: "supplyMoraleDrop" }
+        ]
+      },
+      {
+        text: "🔧 HVAC system fails during heat wave.",
+        options: [
+          { text: "Repair immediately ($12,000)", cost: 12000, tag: "hvacFixed" },
+          { text: "Use fans + early dismissal (-$3,000)", cost: 3000, tag: "coolingWorkaround" }
+        ]
+      },
+      {
+        text: "🎭 Local theater invites students to perform.",
+        options: [
+          { text: "Participate (+$2,000 grant)", cost: -2000, tag: "theaterGrant" },
+          { text: "Decline", cost: 0, tag: "skipArtShow" }
+        ]
+      },
+      {
+        text: "🚸 Bus routes changed by district.",
+        options: [
+          { text: "Adjust bell schedule ($0)", cost: 0, tag: "bellShift" },
+          { text: "Add late bus service ($5,000)", cost: 5000, tag: "lateBus" }
+        ]
+      },
+      {
+        text: "📱 Viral TikTok prank filmed at school.",
+        options: [
+          { text: "Respond with media training ($3,000)", cost: 3000, tag: "mediaTraining" },
+          { text: "Ignore (-$2,000 PR hit)", cost: 2000, tag: "badPress" }
+        ]
+      },
+      {
+        text: "💼 Assistant Principal resigns mid-year.",
+        options: [
+          { text: "Hire quickly ($8,000)", cost: 8000, tag: "newAP" },
+          { text: "Distribute duties (-$3,000 morale)", cost: 3000, tag: "overworkedTeam" }
+        ]
+      },
+      {
+        text: "📊 District adds surprise benchmark test.",
+        options: [
+          { text: "Prep with weekend reviews ($4,000)", cost: 4000, tag: "testPrep" },
+          { text: "Do nothing (-$3,000 scores impact)", cost: 3000, tag: "lowScores" }
+        ]
+      },
+      {
+        text: "🚽 Bathrooms vandalized with vape sensors disabled.",
+        options: [
+          { text: "Install new sensors ($6,000)", cost: 6000, tag: "sensorFix" },
+          { text: "Increase patrols (-$2,000)", cost: 2000, tag: "patrolFix" }
+        ]
+      },
+      {
+        text: "🍎 Teacher of the Year nominated by state!",
+        options: [
+          { text: "Celebrate publicly (+$3,000 in donations)", cost: -3000, tag: "staffPraise" },
+          { text: "Keep internal", cost: 0, tag: "quietCongrats" }
+        ]
+      },
+      {
+        text: "📬 Local news wants interview on school success.",
+        options: [
+          { text: "Accept (+$2,000 PR boost)", cost: -2000, tag: "newsFeature" },
+          { text: "Decline quietly", cost: 0, tag: "noMedia" }
+        ]
+      },
+      {
+        text: "🎯 PTA pushes for parent advisory vote on grading.",
+        options: [
+          { text: "Host forum ($2,000)", cost: 2000, tag: "ptaForum" },
+          { text: "Decline (-$1,000 trust loss)", cost: 1000, tag: "ptaDistrust" }
+        ]
+      },
+      {
+        text: "🏟️ Rival school game disrupted by fans.",
+        options: [
+          { text: "Increase security ($4,000)", cost: 4000, tag: "securityBoost" },
+          { text: "Limit event access (-$2,000 ticket sales)", cost: 2000, tag: "limitAccess" }
+        ]
+      },
+      {
+        text: "💬 Student fight goes viral online.",
+        options: [
+          { text: "Hold restorative circle ($1,000)", cost: 1000, tag: "restorativeCircle" },
+          { text: "Suspend both (-$2,000 trust hit)", cost: 2000, tag: "suspensionUsed" }
+        ]
+      },
+      {
+        text: "🌪️ Tornado drill reveals safety gaps.",
+        options: [
+          { text: "Update emergency plan ($3,000)", cost: 3000, tag: "safetyPlanFix" },
+          { text: "Delay updates (-$2,000 risk)", cost: 2000, tag: "safetyDelay" }
+        ]
+      }
+    ];
+
+    allScenarios.push(...eventScenarios);
+
+    // DOM elements
+    const schoolTypeLabel = document.getElementById("schoolTypeLabel");
+    const budgetDisplay = document.getElementById("budgetDisplay");
+    const eventText = document.getElementById("eventText");
+    const eventOptions = document.getElementById("eventOptions");
+    const nextBtn = document.getElementById("nextBtn");
+    const eventNumber = document.getElementById("eventNumber");
+    const totalEvents = document.getElementById("totalEvents");
+    const summary = document.getElementById("summary");
+
+    schoolTypeLabel.textContent = schoolType;
+    totalEvents.textContent = allScenarios.length;
+
+    function updateBudget() {
+      budgetDisplay.textContent = `$${budget.toLocaleString()}`;
+    }
+
+    function renderEvent(index) {
+      if (index >= allScenarios.length) {
+        localStorage.setItem("budgetRemaining", budget);
+        const tags = history.map(h => h.tag);
+        summary.style.display = "block";
+        eventText.innerText = "";
+        eventOptions.innerHTML = "";
+        nextBtn.style.display = "none";
+        summary.innerHTML = `
+          ✅ Decision Day Complete!<br/><br/>
+          🏫 School Type: <strong>${schoolType}</strong><br/>
+          💰 Final Budget: <strong>$${budget.toLocaleString()}</strong><br/><br/>
+          🧩 Scenario Outcomes:<br/>
+          <code>${tags.join(", ")}</code>
+        `;
+        return;
+      }
+
+      const e = allScenarios[index];
+      eventNumber.textContent = index + 1;
+      eventText.innerText = e.text;
+      eventOptions.innerHTML = "";
+      nextBtn.style.display = "none";
+
+      let selected = null;
+      e.options.forEach((opt, i) => {
+        const btn = document.createElement("button");
+        btn.innerHTML = `📝 ${opt.text}${opt.rationale ? `<br><span class="rationale">${opt.rationale}</span>` : ""}`;
+        btn.onclick = () => {
+          Array.from(eventOptions.children).forEach(b => b.classList.remove("selected"));
+          btn.classList.add("selected");
+          if (selected !== null) budget += e.options[selected].cost;
+          selected = i;
+          budget -= opt.cost;
+          updateBudget();
+          nextBtn.style.display = "inline-block";
+        };
+        eventOptions.appendChild(btn);
+      });
+
+      nextBtn.onclick = () => {
+        if (selected !== null) {
+          history.push({ index, tag: e.options[selected].tag });
+          renderEvent(index + 1);
+        }
+      };
+    }
+
+    updateBudget();
+    renderEvent(0);
+  </script>
+</body>
+</html>
